@@ -480,21 +480,21 @@ test "(de)serialize a slice of structs" {
 }
 
 test "chunk count of basic types" {
-    try expect(chunkCount(bool) == 1);
-    try expect(chunkCount(u8) == 1);
-    try expect(chunkCount(u16) == 1);
-    try expect(chunkCount(u32) == 1);
-    try expect(chunkCount(u64) == 1);
+    try expect((try chunkCount(bool)) == 1);
+    try expect((try chunkCount(u8)) == 1);
+    try expect((try chunkCount(u16)) == 1);
+    try expect((try chunkCount(u32)) == 1);
+    try expect((try chunkCount(u64)) == 1);
 }
 
 test "chunk count of Bitvector[N]" {
-    try expect(chunkCount([7]bool) == 1);
-    try expect(chunkCount([12]bool) == 1);
-    try expect(chunkCount([384]bool) == 2);
+    try expect((try chunkCount([7]bool)) == 1);
+    try expect((try chunkCount([12]bool)) == 1);
+    try expect((try chunkCount([384]bool)) == 2);
 }
 
 test "chunk count of Vector[B, N]" {
-    try expect(chunkCount([17]u32) == 3);
+    try expect((try chunkCount([17]u32)) == 3);
 }
 
 test "chunk count of a struct" {
@@ -1281,7 +1281,7 @@ test "zeam stf input" {
         slot: u64,
         latest_block_header: BeamBlockHeader,
         latest_justified: Mini3SFCheckpoint,
-        lastest_finalized: Mini3SFCheckpoint,
+        latest_finalized: Mini3SFCheckpoint,
         historical_block_hashes: []Bytes32,
         justified_slots: []u8,
 
@@ -1312,7 +1312,7 @@ test "zeam stf input" {
         },
         // mini3sf
         .latest_justified = .{ .root = [_]u8{5} ** 32, .slot = 0 },
-        .lastest_finalized = .{ .root = [_]u8{4} ** 32, .slot = 0 },
+        .latest_finalized = .{ .root = [_]u8{4} ** 32, .slot = 0 },
         .historical_block_hashes = &[_]Bytes32{},
         .justified_slots = &[_]u8{},
         .justifications_roots = &justifications_roots,
