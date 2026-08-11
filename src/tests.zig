@@ -498,11 +498,11 @@ test "chunk count of Vector[B, N]" {
 }
 
 test "chunk count of a struct" {
-    try expect(chunkCount(Pastry) == 2);
+    try expect((try chunkCount(Pastry)) == 2);
 }
 
 test "chunk count of a Vector[C, N]" {
-    try expect(chunkCount([2]Pastry) == 2);
+    try expect((try chunkCount([2]Pastry)) == 2);
 }
 
 // used at comptime to generate a bitvector from a byte vector

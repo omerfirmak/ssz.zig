@@ -717,7 +717,7 @@ test "mixInSelector" {
 
 /// Calculates the number of leaves needed for the merkelization
 /// of this type.
-pub fn chunkCount(T: type) usize {
+pub fn chunkCount(T: type) !usize {
     const info = @typeInfo(T);
     switch (info) {
         .int, .bool => return 1,
@@ -943,7 +943,7 @@ pub fn hashTreeRoot(Hasher: type, T: type, value: T, out: *[Hasher.digest_length
                     var list: ArrayList(u8) = .empty;
                     defer list.deinit(allocator);
                     const chunks = try packBits(value[0..], &list, allocator);
-                    try merkleize(Hasher, chunks, chunkCount(T), out);
+                    try merkleize(Hasher, chunks, try chunkCount(T), out);
                 },
                 .array => {
                     var chunks: ArrayList(chunk) = .empty;
