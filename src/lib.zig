@@ -648,6 +648,10 @@ pub fn deserialize(T: type, serialized: []const u8, out: *T, allocator: ?Allocat
             var union_index: u8 = undefined;
             try deserialize(u8, serialized[0..1], &union_index, allocator);
 
+            if (union_index >= @as(u8, @intCast(info.@"union".fields.len))) {
+                return error.InvalidUnionSelector;
+            }
+
             // Use the index to figure out which type must
             // be deserialized.
             inline for (info.@"union".fields, 0..) |field, index| {
