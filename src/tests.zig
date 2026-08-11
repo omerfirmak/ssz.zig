@@ -1345,7 +1345,7 @@ test "zeam stf input" {
     var prover_input_deserialized: BeamSTFProverInput = undefined;
     try deserialize(BeamSTFProverInput, serialized.items[0..], &prover_input_deserialized, arena_allocator.allocator());
     try expect(std.mem.eql(u8, &prover_input.block.message.parent_root, &prover_input_deserialized.block.message.parent_root));
-    try expect(std.mem.eql(u8, &prover_input.state.lastest_finalized.root, &prover_input_deserialized.state.lastest_finalized.root));
+    try expect(std.mem.eql(u8, &prover_input.state.latest_finalized.root, &prover_input_deserialized.state.latest_finalized.root));
     try expect(std.mem.eql(u8, prover_input.state.justifications_validators, prover_input_deserialized.state.justifications_validators));
 }
 
