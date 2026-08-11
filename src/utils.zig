@@ -338,6 +338,7 @@ pub fn Bitlist(comptime N: usize) type {
 
             // Find sentinel bit position using @clz (count leading zeros)
             const last_byte = serialized[serialized.len - 1];
+            if (last_byte == 0) return error.BitlistTrailingByteZero;
             const msb_pos = @as(usize, 8) - @clz(last_byte);
             const bit_length = 8 * (serialized.len - 1) + (msb_pos - 1);
 
