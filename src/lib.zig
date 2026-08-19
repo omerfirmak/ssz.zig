@@ -898,6 +898,79 @@ test "merkleize a bytes16 vector with one element" {
     // try std.testing.expect(std.mem.eql(u8, out[0..], expected[0..]));
 }
 
+// merkleizeProgressive recursively calculates the root hash of an EIP-7916
+// progressive Merkle tree: a 0-terminated sequence of binary subtrees with leaf
+// counts 1, 4, 16, 64, ... Callers start the recursion with `num_leaves = 1`.
+//
+// Trailing zero chunks are not padding here, so `chunks` must hold exactly
+// ceil(serialized_len / BYTES_PER_CHUNK) entries.
+pub fn merkleizeProgressive(Hasher: type, chunks: []chunk, num_leaves: usize, out: *[Hasher.digest_length]u8) anyerror!void {
+    // The 0-terminator.
+    if (chunks.len == 0) {
+        @memset(out[0..], 0);
+        return;
+    }
+
+    // `merkleize` zero-pads the left subtree up to `num_leaves`.
+    const split = @min(num_leaves, chunks.len);
+    var buf: [Hasher.digest_length]u8 = undefined;
+    var digest = Hasher.init(Hasher.Options{});
+
+    try merkleize(Hasher, chunks[0..split], num_leaves, &buf);
+    digest.update(buf[0..]);
+    try merkleizeProgressive(Hasher, chunks[split..], num_leaves * 4, &buf);
+    digest.update(buf[0..]);
+
+    digest.final(out);
+}
+
+test "merkleizeProgressive of an empty slice is the zero chunk" {
+    const chunks = &[0][32]u8{};
+    var out: [32]u8 = undefined;
+    try merkleizeProgressive(Sha256, chunks, 1, &out);
+    try std.testing.expectEqualSlices(u8, zero_chunk[0..], out[0..]);
+}
+
+test "merkleizeProgressive subtree layout" {
+    var chunks: [5]chunk = undefined;
+    for (0..5) |i| chunks[i] = [_]u8{@intCast(i + 1)} ** 32;
+
+    var got: [32]u8 = undefined;
+    var expected: [32]u8 = undefined;
+    var hasher = Sha256.init(Sha256.Options{});
+
+    // A single chunk fills the 1-leaf subtree, terminated by the zero chunk.
+    try merkleizeProgressive(Sha256, chunks[0..1], 1, &got);
+    hasher.update(chunks[0][0..]);
+    hasher.update(zero_chunk[0..]);
+    hasher.final(&expected);
+    try std.testing.expectEqualSlices(u8, expected[0..], got[0..]);
+
+    // Five chunks fill the 1-leaf and the 4-leaf subtrees exactly.
+    try merkleizeProgressive(Sha256, chunks[0..5], 1, &got);
+    var second: [32]u8 = undefined;
+    try merkleize(Sha256, chunks[1..5], 4, &second);
+    var right: [32]u8 = undefined;
+    hasher = Sha256.init(Sha256.Options{});
+    hasher.update(second[0..]);
+    hasher.update(zero_chunk[0..]);
+    hasher.final(&right);
+    hasher = Sha256.init(Sha256.Options{});
+    hasher.update(chunks[0][0..]);
+    hasher.update(right[0..]);
+    hasher.final(&expected);
+    try std.testing.expectEqualSlices(u8, expected[0..], got[0..]);
+}
+
+test "merkleizeProgressive is sensitive to trailing zero chunks" {
+    var chunks = [_]chunk{ [_]u8{0xAA} ** 32, zero_chunk };
+    var one: [32]u8 = undefined;
+    var two: [32]u8 = undefined;
+    try merkleizeProgressive(Sha256, chunks[0..1], 1, &one);
+    try merkleizeProgressive(Sha256, chunks[0..2], 1, &two);
+    try std.testing.expect(!std.mem.eql(u8, one[0..], two[0..]));
+}
+
 fn packBits(bits: []const bool, l: *ArrayList(u8), allocator: Allocator) ![]chunk {
     var byte: u8 = 0;
     for (bits, 0..) |bit, bitidx| {

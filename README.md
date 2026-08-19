@@ -21,6 +21,8 @@ Currently supported types:
  * **tagged** unions
  * `List[N]`
  * `Bitlist[N]`
+ * `ProgressiveList[T]`
+ * `ProgressiveBitlist`
 
 Ziglang has the limitation that it's not possible to determine which union field is active without tags.
 
@@ -42,6 +44,8 @@ Supported types:
  * optionals
  * `List[N]`
  * `Bitlist[N]`
+ * `ProgressiveList[T]`
+ * `ProgressiveBitlist`
 
 ## Merkelization (experimental)
 
@@ -59,6 +63,37 @@ Supported types:
  * unions
  * `List[N]`
  * `Bitlist[N]`
+ * `ProgressiveList[T]`
+ * `ProgressiveBitlist`
+
+## Progressive types (EIP-7916)
+
+`ProgressiveList(T)` and `ProgressiveBitlist` implement
+[EIP-7916](https://eips.ethereum.org/EIPS/eip-7916). They serialize exactly like
+`List(T, N)` and `Bitlist(N)`, but carry no capacity limit and merkleize with
+`merkleizeProgressive`: a 0-terminated sequence of binary subtrees whose leaf
+counts grow 1, 4, 16, 64, ... This costs fewer hashes for short lists and keeps
+generalized indices stable as the list grows.
+
+```zig
+const Transactions = ssz.utils.ProgressiveList(u64);
+var txs = try Transactions.init(allocator);
+defer txs.deinit();
+try txs.append(42);
+try ssz.hashTreeRoot(Sha256, Transactions, txs, &root, allocator);
+```
+
+`ProgressiveByteList` is an alias for `ProgressiveList(u8)`.
+
+Two consequences of having no `N`:
+
+ * `maxInLength` returns `error.NoMaxInLengthAvailable`, so `deserialize` cannot
+   reject an oversized payload up front. Decoding still allocates only in
+   proportion to the input, but callers that relied on `N` as a cheap sanity
+   bound should enforce their own context-specific limit, as the EIP recommends.
+ * `TreeHasher` cannot wrap a progressive type: a progressive tree has no fixed
+   depth, so the power-of-two Merkle cache does not apply. Using it is a compile
+   error.
 
 ## Using Custom Hash Functions
 
