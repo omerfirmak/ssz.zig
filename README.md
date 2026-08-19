@@ -85,6 +85,21 @@ try ssz.hashTreeRoot(Sha256, Transactions, txs, &root, allocator);
 
 `ProgressiveByteList` is an alias for `ProgressiveList(u8)`.
 
+A struct opts in to EIP-7495 / EIP-7688 `ProgressiveContainer(active_fields=[1] * N)`
+merkleization by declaring a marker. Serialization is unchanged; only the root
+differs, becoming `hash(merkleize_progressive(field_roots), pack_bits(active_fields))`.
+
+```zig
+pub const ExecutionPayload = struct {
+    pub const ssz_progressive_container = true;
+    parent_hash: [32]u8,
+    // ...
+};
+```
+
+Only the all-active form EIP-7688 mandates is supported; `active_fields` is
+derived from the field count, so there is no way to mark a field inactive.
+
 Two consequences of having no `N`:
 
  * `maxInLength` returns `error.NoMaxInLengthAvailable`, so `deserialize` cannot

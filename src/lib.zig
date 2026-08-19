@@ -699,6 +699,30 @@ test "mixInLength" {
     try std.testing.expect(std.mem.eql(u8, mixin[0..], expected[0..]));
 }
 
+fn mixInActiveFields(Hasher: type, root: [Hasher.digest_length]u8, active_fields: chunk, out: *[Hasher.digest_length]u8) void {
+    var hasher = Hasher.init(Hasher.Options{});
+    hasher.update(root[0..]);
+    hasher.update(active_fields[0..]);
+    hasher.final(out[0..]);
+}
+
+/// A struct opts in to EIP-7495 `ProgressiveContainer(active_fields=[1] * N)`
+/// merkleization, as mandated by EIP-7688, by declaring
+/// `pub const ssz_progressive_container = true;`. Serialization is unchanged.
+pub fn isProgressiveContainer(T: type) bool {
+    return @hasDecl(T, "ssz_progressive_container") and T.ssz_progressive_container;
+}
+
+/// pack_bits(active_fields) for `n` all-active fields. EIP-7495 caps
+/// active_fields at 256 bits, so the result is always a single chunk.
+fn activeFieldsChunk(comptime n: usize) chunk {
+    if (n == 0) @compileError("a progressive container needs at least one field");
+    if (n > 256) @compileError("a progressive container may have at most 256 fields");
+    var c: chunk = zero_chunk;
+    for (0..n) |i| c[i / 8] |= @as(u8, 1) << @truncate(i % 8);
+    return c;
+}
+
 fn mixInSelector(Hasher: type, root: [Hasher.digest_length]u8, comptime selector: usize, out: *[Hasher.digest_length]u8) void {
     var hasher = Hasher.init(Hasher.Options{});
     hasher.update(root[0..]);
@@ -1075,7 +1099,12 @@ pub fn hashTreeRoot(Hasher: type, T: type, value: T, out: *[Hasher.digest_length
                 try hashTreeRoot(Hasher, f.type, @field(value, f.name), &tmp, allocator);
                 try chunks.append(allocator, tmp);
             }
-            try merkleize(Hasher, chunks.items, null, out);
+            if (comptime isProgressiveContainer(T)) {
+                try merkleizeProgressive(Hasher, chunks.items, 1, &tmp);
+                mixInActiveFields(Hasher, tmp, comptime activeFieldsChunk(str.fields.len), out);
+            } else {
+                try merkleize(Hasher, chunks.items, null, out);
+            }
         },
         // An optional is a union with `None` as first value.
         .optional => |opt| if (value != null) {
